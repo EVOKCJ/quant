@@ -1,0 +1,11 @@
+/target/
+/logPath_IS_UNDEFINED/
+/cache/
+.settings
+.classpath
+.project
+/ttfront.iml
+/.idea
+.idea
+*.iml
+
