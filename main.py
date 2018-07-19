@@ -94,22 +94,24 @@ peT6 = []
 #     stockCount = stockCount + 1
 
 basepath = '/Users/chenjian/Desktop/excel'
+startDay = 1
 
-
-today = time.strftime("%Y-%m-%d", time.localtime(time.time() - 86400*1))
-nextDay = time.strftime("%Y-%m-%d", time.localtime(time.time()))
+today = time.strftime("%Y-%m-%d", time.localtime(time.time() - 86400*startDay))
+nextDay = time.strftime("%Y-%m-%d", time.localtime(time.time() - 86400*(startDay-1)))
 
 cal_dates = ts.trade_cal()
 status = cal_dates[cal_dates['calendarDate'] == today]['isOpen'].values[0]
 if status == 0:
     print("==========非交易日=============")
+    exit(0)
 
 #allFunds = ts.get_today_all()
 
 stock_info = ts.get_stock_basics(today)
 
 stockLen = len(stock_info)
-
+print("=======allFunds=========")
+print(stockLen)
 stockCodes = stock_info.index.tolist()
 stockCodeNames = stock_info['name'].tolist()
 
@@ -118,18 +120,26 @@ stockCount = 0
 # code = stockCodes[0]
 # result = ts.get_hist_data(code=code, start=today, end=today)
 result = pd.DataFrame()
-start = 1
+allFunds = pd.DataFrame()
+start = startDay + 1
 while stockCount < stockLen:
     code = stockCodes[stockCount]
     # code = '600158'
     print(code+"=========")
     codeName = stockCodeNames[stockCount]
-    preTradeDay = time.strftime("%Y-%m-%d", time.localtime(time.time() - 86400 * start*2))
+    preTradeDay = time.strftime("%Y-%m-%d", time.localtime(time.time() - 86400 * (start)))
+
     while not cal_dates[cal_dates['calendarDate'] == preTradeDay]['isOpen'].values[0]:
-        start = start + 2
-        preTradeDay = time.strftime("%Y-%m-%d", time.localtime(time.time() - 86400 * start * 2))
+        start = start + 1
+        preTradeDay = time.strftime("%Y-%m-%d", time.localtime(time.time() - 86400 * start))
 
     dataToday = ts.get_hist_data(code=code, start=today, end=today)
+
+    if dataToday is not None and len(dataToday) != 0:
+        dataToday['code'] = code
+        dataToday['codeName'] = codeName
+        allFunds = allFunds.append(dataToday, ignore_index=True)
+
     dataPreToday = ts.get_hist_data(code=code, start=preTradeDay, end=preTradeDay)
     if dataToday is None or len(dataToday) == 0 or dataPreToday is None or len(dataPreToday) == 0:
         stockCount = stockCount + 1
@@ -137,14 +147,15 @@ while stockCount < stockLen:
     todayHigh = dataToday['high'].tolist()[0]
     preTodayHigh = dataPreToday['close'].tolist()[0]
 
+
     if preTodayHigh != 0 and todayHigh >= (1 + 0.099)*preTodayHigh:
         dataToday['code'] = code
         dataToday['codeName'] = codeName
         result = result.append(dataToday, ignore_index=True)
-        break
 
     stockCount = stockCount + 1
     print("===========")
+    print(len(allFunds))
     print(stockCount)
 
 
@@ -163,6 +174,7 @@ codeNameRow = result.iloc[:, 14:15]
 
 size = len(codeRow)
 count = 0
+hasVauleResult = 0
 
 while count < size:
     highP = highRow.values.tolist()[count][0]
@@ -176,6 +188,10 @@ while count < size:
     #获取正序第一个涨停的价格
     minR = highPList.sort_index(ascending=True)
 
+    if minR is None or len(minR) == 0:
+        count = count + 1
+        continue
+
     #数据装入
     limitUpTimeT.append(minR.iloc[0:1, 0:1].index[0])
     stockCodeList.append(codeInExcel)
@@ -183,35 +199,42 @@ while count < size:
     limitUpDateT.append(today)
     limitUpPriceT.append(minR.iloc[0:1, 0:1].values[0][0])
 
+    hasVauleResult = hasVauleResult + 1
     count = count + 1
 
+
+resultTmp = 0
+zeroList = []
+while resultTmp < hasVauleResult:
+    zeroList.append(0)
+    resultTmp = resultTmp + 1
 #生成涨停当日excel
 df = pd.DataFrame({'股票代码': stockCodeList,
                    '股票名称': stockNameList,
                    'T涨停日期': limitUpDateT,
                    'T涨停时间段': limitUpTimeT,
                    'T涨停价格': limitUpPriceT,
-                   'T1开盘价格': [0],
-                   'T2开盘价格': [0],
-                   'T2收盘价格': [0],
-                   'T2收益率（收-开）': [0],
-                   'T2收益率（开-开）': [0],
-                   'T3开盘价格': [0],
-                   'T3收盘价格': [0],
-                   'T3收益率（收-开）': [0],
-                   'T3收益率（开-开）': [0],
-                   'T4开盘价格': [0],
-                   'T4收盘价格': [0],
-                   'T4收益率（收-开）': [0],
-                   'T4收益率（开-开）': [0],
-                   'T5开盘价格': [0],
-                   'T5收盘价格': [0],
-                   'T5收益率（收-开）': [0],
-                   'T5收益率（开-开）': [0],
-                   'T6开盘价格': [0],
-                   'T6收盘价格': [0],
-                   'T6收益率（收-开）': [0],
-                   'T6收益率（开-开）': [0],
+                   'T1开盘价格': zeroList,
+                   'T2开盘价格': zeroList,
+                   'T2收盘价格': zeroList,
+                   'T2收益率（收-开）': zeroList,
+                   'T2收益率（开-开）': zeroList,
+                   'T3开盘价格': zeroList,
+                   'T3收盘价格': zeroList,
+                   'T3收益率（收-开）': zeroList,
+                   'T3收益率（开-开）': zeroList,
+                   'T4开盘价格': zeroList,
+                   'T4收盘价格': zeroList,
+                   'T4收益率（收-开）': zeroList,
+                   'T4收益率（开-开）': zeroList,
+                   'T5开盘价格': zeroList,
+                   'T5收盘价格': zeroList,
+                   'T5收益率（收-开）': zeroList,
+                   'T5收益率（开-开）': zeroList,
+                   'T6开盘价格': zeroList,
+                   'T6收盘价格': zeroList,
+                   'T6收益率（收-开）': zeroList,
+                   'T6收益率（开-开）': zeroList,
                    })
 cols=['股票代码', '股票名称', 'T涨停日期', 'T涨停时间段', 'T涨停价格','T1开盘价格','T2开盘价格',
       'T2收盘价格', 'T2收益率（收-开）', 'T2收益率（开-开）', 'T3开盘价格',
@@ -226,9 +249,9 @@ df.to_excel( basepath + "/" + today + ".xlsx" , sheet_name="sheet1")
 preDayCount = 6
 execlDay = []
 start = 1
-dayIndex = 1
+dayIndex = startDay
 while start <= preDayCount:
-    preDay = time.strftime("%Y-%m-%d", time.localtime(time.time() - 86400*dayIndex))
+    preDay = time.strftime("%Y-%m-%d", time.localtime(time.time() - 86400*(dayIndex+1)))
     status = cal_dates[cal_dates['calendarDate'] == preDay]['isOpen'].values[0]
     dayIndex = dayIndex + 1
     if status == 1:
@@ -242,7 +265,12 @@ for index, day in enumerate(execlDay):
         codeList = frame['股票代码'].tolist()
         openTPrice = frame['T1开盘价格']
         for codeInExcel in codeList:
-            selectRow = result[result['code'] == str(codeInExcel)]
+            s = str(codeInExcel)
+            codeTmpLen = len(s)
+            while codeTmpLen < 6:
+                s = '0' + s
+                codeTmpLen = codeTmpLen + 1
+            selectRow = allFunds[allFunds['code'] == s]
             if selectRow is None or len(selectRow) == 0:
                 continue
             if index == 0:
@@ -250,28 +278,48 @@ for index, day in enumerate(execlDay):
             if index == 1:
                 openT2.append(selectRow['open'].tolist()[0])  # T2开盘价
                 closeT2.append(selectRow['close'].tolist()[0])  # T2收盘价
-                yieldRateOpenOpenT2.append((selectRow['open'].tolist()[0] - openTPrice)/selectRow['open'].tolist()[0])  # T2开盘-T1开盘，收益率
-                yieldRateCloseOpenT2.append((selectRow['close'].tolist()[0] - openTPrice)/selectRow['open'].tolist()[0])  # T2收盘-T1开盘，收益率
+                if openTPrice != 0:
+                    yieldRateOpenOpenT2.append((selectRow['open'].tolist()[0] - openTPrice)/openTPrice)  # T2开盘-T1开盘，收益率
+                    yieldRateCloseOpenT2.append((selectRow['close'].tolist()[0] - openTPrice)/openTPrice)  # T2收盘-T1开盘，收益率
+                else:
+                    yieldRateOpenOpenT2.append(0)  # T2开盘-T1开盘，收益率
+                    yieldRateCloseOpenT2.append(0)  # T2收盘-T1开盘，收益率
             if index == 2:
                 openT3.append(selectRow['open'].tolist()[0])  # T2开盘价
                 closeT3.append(selectRow['close'].tolist()[0])  # T2收盘价
-                yieldRateOpenOpenT3.append((selectRow['open'].tolist()[0] - openTPrice)/selectRow['open'].tolist()[0])  # T2开盘-T1开盘，收益率
-                yieldRateCloseOpenT3.append((selectRow['close'].tolist()[0] - openTPrice)/selectRow['open'].tolist()[0])  # T2收盘-T1开盘，收益率
+                if openTPrice != 0:
+                    yieldRateOpenOpenT3.append((selectRow['open'].tolist()[0] - openTPrice)/openTPrice)  # T2开盘-T1开盘，收益率
+                    yieldRateCloseOpenT3.append((selectRow['close'].tolist()[0] - openTPrice)/openTPrice)  # T2收盘-T1开盘，收益率
+                else:
+                    yieldRateOpenOpenT3.append(0)  # T2开盘-T1开盘，收益率
+                    yieldRateCloseOpenT3.append(0)  # T2收盘-T1开盘，收益率
             if index == 3:
                 openT4.append(selectRow['open'].tolist()[0])  # T2开盘价
                 closeT4.append(selectRow['close'].tolist()[0])  # T2收盘价
-                yieldRateOpenOpenT4.append((selectRow['open'].tolist()[0] - openTPrice)/selectRow['open'].tolist()[0])  # T2开盘-T1开盘，收益率
-                yieldRateCloseOpenT4.append((selectRow['close'].tolist()[0] - openTPrice)/selectRow['open'].tolist()[0])  # T2收盘-T1开盘，收益率
+                if openTPrice != 0:
+                    yieldRateOpenOpenT4.append((selectRow['open'].tolist()[0] - openTPrice)/openTPrice)  # T2开盘-T1开盘，收益率
+                    yieldRateCloseOpenT4.append((selectRow['close'].tolist()[0] - openTPrice)/openTPrice)  # T2收盘-T1开盘，收益率
+                else:
+                    yieldRateOpenOpenT4.append(0)  # T2开盘-T1开盘，收益率
+                    yieldRateCloseOpenT4.append(0)  # T2收盘-T1开盘，收益率
             if index == 4:
                 openT5.append(selectRow['open'].tolist()[0])  # T2开盘价
                 closeT5.append(selectRow['close'].tolist()[0])  # T2收盘价
-                yieldRateOpenOpenT5.append((selectRow['open'].tolist()[0] - openTPrice)/selectRow['open'].tolist()[0])  # T2开盘-T1开盘，收益率
-                yieldRateCloseOpenT5.append((selectRow['close'].tolist()[0] - openTPrice)/selectRow['open'].tolist()[0])  # T2收盘-T1开盘，收益率
+                if openTPrice != 0:
+                    yieldRateOpenOpenT5.append((selectRow['open'].tolist()[0] - openTPrice)/openTPrice)  # T2开盘-T1开盘，收益率
+                    yieldRateCloseOpenT5.append((selectRow['close'].tolist()[0] - openTPrice)/openTPrice)  # T2收盘-T1开盘，收益率
+                else:
+                    yieldRateOpenOpenT5.append(0)  # T2开盘-T1开盘，收益率
+                    yieldRateCloseOpenT5.append(0)  # T2收盘-T1开盘，收益率
             if index == 5:
                 openT6.append(selectRow['open'].tolist()[0])  # T2开盘价
                 closeT6.append(selectRow['close'].tolist()[0])  # T2收盘价
-                yieldRateOpenOpenT6.append((selectRow['open'].tolist()[0] - openTPrice)/selectRow['open'].tolist()[0])  # T2开盘-T1开盘，收益率
-                yieldRateCloseOpenT6.append((selectRow['close'].tolist()[0] - openTPrice)/selectRow['open'].tolist()[0])  # T2收盘-T1开盘，收益率
+                if openTPrice != 0:
+                    yieldRateOpenOpenT6.append((selectRow['open'].tolist()[0] - openTPrice)/openTPrice)  # T2开盘-T1开盘，收益率
+                    yieldRateCloseOpenT6.append((selectRow['close'].tolist()[0] - openTPrice)/openTPrice)  # T2收盘-T1开盘，收益率
+                else:
+                    yieldRateOpenOpenT6.append(0)  # T2开盘-T1开盘，收益率
+                    yieldRateCloseOpenT6.append(0)  # T2收盘-T1开盘，收益率
 
         if index == 0 and len(limitUpOpenT1) != 0:
             frame['T1开盘价格'] = limitUpOpenT1
@@ -280,22 +328,22 @@ for index, day in enumerate(execlDay):
             frame['T2收盘价格'] = closeT2
             frame['T2收益率（收-开）'] = yieldRateCloseOpenT2
             frame['T2收益率（开-开）'] = yieldRateOpenOpenT2
-        if index == 2:
+        if index == 2 and len(openT3) != 0:
             frame['T3开盘价格'] = openT3
             frame['T3收盘价格'] = closeT3
             frame['T3收益率（收-开）'] = yieldRateCloseOpenT3
             frame['T3收益率（开-开）'] = yieldRateOpenOpenT3
-        if index == 3:
+        if index == 3 and len(openT4) != 0:
             frame['T4开盘价格'] = openT4
             frame['T4收盘价格'] = closeT4
             frame['T4收益率（收-开）'] = yieldRateCloseOpenT4
             frame['T4收益率（开-开）'] = yieldRateOpenOpenT4
-        if index == 4:
+        if index == 4 and len(openT5) != 0:
             frame['T5开盘价格'] = openT5
             frame['T5收盘价格'] = closeT5
             frame['T5收益率（收-开）'] = yieldRateCloseOpenT5
             frame['T5收益率（开-开）'] = yieldRateOpenOpenT5
-        if index == 5:
+        if index == 5 and len(openT6) != 0:
             frame['T6开盘价格'] = openT6
             frame['T6收盘价格'] = closeT6
             frame['T6收益率（收-开）'] = yieldRateCloseOpenT6
